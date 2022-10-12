@@ -5,6 +5,7 @@ from operator import itemgetter
 from typing import Any, DefaultDict, Dict, List
 
 import pandas as pd
+from scipy.stats import kstest, norm
 
 try:
     import ujson as json
@@ -23,6 +24,8 @@ except ImportError:
 # Data Dict
 ###############
 
+RESULT: DefaultDict[str, Dict[str, Any]] = defaultdict(dict)
+
 # https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/school.json
 with open("school.json", "rb") as f:
     school = json.loads(f.read())
@@ -37,17 +40,51 @@ with open("mount_group.json", "rb") as f:
     mount_group = json.loads(f.read())
 
 
-RESULT: DefaultDict[str, Dict[str, Any]] = defaultdict(dict)
-
-
-####################
-# Analysis Function
-####################
-
-
-def top10_server_team_count(df: pd.DataFrame) -> None:
+def outlier_dropper(df: pd.DataFrame, col: str) -> pd.DataFrame:
     """
-    top10_server_team_count
+    outlier_dropper
+
+    Drop the outlier by norm or IQR .
+
+    Args:
+        df (pd.DataFrame): dataframe .
+        col (str): filtered column .
+
+    Returns:
+        pd.DataFrame: outlier dropped dataframe .
+    """
+    mean, std = df[col].mean(), df[col].std()
+
+    if kstest(df[col], cdf="norm", args=(mean, std)).pvalue > 0.05:
+        low, high = norm.interval(0.95, loc=mean, scale=std)
+    else:
+        Q1 = df[col].quantile(0.25)
+        Q3 = df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        low = Q1 - IQR * 1.5
+        high = Q3 + IQR * 1.5
+
+    return df.query(f"{low} <= {col} <= {high}")
+
+
+def dumper(output: str = "result.json") -> int:
+    """
+    dumper
+
+    Dump to `JSON` file .
+    """
+    with open(output, mode="w+", encoding="utf-8") as f:
+        return f.write(json.dumps(RESULT))
+
+
+###############
+# Statistics
+###############
+
+
+def top10_achieve_team_count(df: pd.DataFrame) -> None:
+    """
+    top10_achieve_team_count
 
     前 10 个击杀 boss 的团队区服统计
     """
@@ -58,13 +95,12 @@ def top10_server_team_count(df: pd.DataFrame) -> None:
         return (
             df.sort_values("finish_time", ascending=True)
             .head(10)
-            .groupby("server")["team_id"]
+            .groupby("server", as_index=False)["team_id"]  # type: ignore
             .count()
-            .sort_values(ascending=False)
-            .reset_index()
+            .sort_values("team_id", ascending=False)
             .rename(columns={"server": "item", "team_id": "value"})
             .to_dict("list")
-        )  # type: ignore
+        )
 
     RESULT["top10_achieve_team_count"]["all"] = _top10_achieve_team_count(df)
 
@@ -76,33 +112,32 @@ def top10_server_team_count(df: pd.DataFrame) -> None:
     df.groupby("achieve_id").apply(agg_func)  # type: ignore
 
 
-def top100_server_team_count(df: pd.DataFrame) -> None:
+def top100_achieve_team_count(df: pd.DataFrame) -> None:
     """
-    top100_server_team_count
+    top100_achieve_team_count
 
     前 100 个击杀 boss 的团队区服统计
     """
 
-    def _top100_server_team_count(
+    def _top100_achieve_team_count(
         df: pd.DataFrame,
     ) -> Dict[str, List[str | int]]:
         return (
             df.sort_values("finish_time", ascending=True)
             .head(100)
-            .groupby("server")["team_id"]
+            .groupby("server", as_index=False)["team_id"]  # type: ignore
             .count()
-            .sort_values(ascending=False)
-            .reset_index()
+            .sort_values("team_id", ascending=False)
             .rename(columns={"server": "item", "team_id": "value"})
             .to_dict("list")
-        )  # type: ignore
+        )
 
-    RESULT["top100_server_team_count"]["all"] = _top100_server_team_count(df)
+    RESULT["top100_achieve_team_count"]["all"] = _top100_achieve_team_count(df)
 
     def agg_func(df: pd.DataFrame) -> None:
-        RESULT["top100_server_team_count"][  # type: ignore
+        RESULT["top100_achieve_team_count"][  # type: ignore
             df.name
-        ] = _top100_server_team_count(df)
+        ] = _top100_achieve_team_count(df)
 
     df.groupby("achieve_id").apply(agg_func)  # type: ignore
 
@@ -118,13 +153,12 @@ def server_rank_team_count(df: pd.DataFrame) -> None:
         df: pd.DataFrame,
     ) -> Dict[str, List[str | int]]:
         return (
-            df.groupby("server")["team_id"]
+            df.groupby("server", as_index=False)["team_id"]  # type: ignore
             .count()
-            .sort_values(ascending=False)
-            .reset_index()
+            .sort_values("team_id", ascending=False)
             .rename(columns={"server": "item", "team_id": "value"})
             .to_dict("list")
-        )  # type: ignore
+        )
 
     RESULT["server_rank_team_count"]["all"] = _server_rank_team_count(df)
 
@@ -184,7 +218,7 @@ def mount_attendance_count(df: pd.DataFrame) -> None:
             .reset_index()
             .rename(columns={"index": "item", 0: "value"})
             .to_dict("list")
-        )  # type: ignore
+        )
 
     RESULT["mount_attendance_count"]["all"] = _mount_attendance_count(df)
 
@@ -196,39 +230,38 @@ def mount_attendance_count(df: pd.DataFrame) -> None:
     df.groupby("achieve_id").apply(agg_func)  # type: ignore
 
 
-def heal_count(df: pd.DataFrame) -> None:
+def hps_count(df: pd.DataFrame) -> None:
     """
-    heal_count
+    hps_count
 
     治疗心法个数统计
     """
 
-    def _heal_count(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+    def _hps_count(df: pd.DataFrame) -> Dict[str, List[str | int]]:
         return (
-            df.groupby("治疗")["team_id"]
+            df.groupby("治疗", as_index=False)["team_id"]  # type: ignore
             .count()
-            .sort_values(ascending=False)
-            .reset_index()
+            .sort_values("team_id", ascending=False)
             .rename(columns={"治疗": "item", "team_id": "value"})
             .to_dict("list")
-        )  # type: ignore
+        )
 
-    RESULT["heal_count"]["all"] = _heal_count(df)
+    RESULT["hps_count"]["all"] = _hps_count(df)
 
     def agg_func(df: pd.DataFrame) -> None:
-        RESULT["heal_count"][df.name] = _heal_count(df)  # type: ignore
+        RESULT["hps_count"][df.name] = _hps_count(df)  # type: ignore
 
     df.groupby("achieve_id").apply(agg_func)  # type: ignore
 
 
-def heal_attendance_count(df: pd.DataFrame) -> None:
+def hps_attendance_count(df: pd.DataFrame) -> None:
     """
-    heal_attendance_count
+    hps_attendance_count
 
     治疗心法出场统计
     """
 
-    def _heal_attendance_count(
+    def _hps_attendance_count(
         df: pd.DataFrame,
     ) -> Dict[str, List[str | int]]:
         return (
@@ -238,14 +271,14 @@ def heal_attendance_count(df: pd.DataFrame) -> None:
             .reset_index()
             .rename(columns={"index": "item", 0: "value"})
             .to_dict("list")
-        )  # type: ignore
+        )
 
-    RESULT["heal_attendance_count"]["all"] = _heal_attendance_count(df)
+    RESULT["hps_attendance_count"]["all"] = _hps_attendance_count(df)
 
     def agg_func(df: pd.DataFrame) -> None:
-        RESULT["heal_attendance_count"][  # type: ignore
+        RESULT["hps_attendance_count"][  # type: ignore
             df.name
-        ] = _heal_attendance_count(df)
+        ] = _hps_attendance_count(df)
 
     df.groupby("achieve_id").apply(agg_func)  # type: ignore
 
@@ -259,13 +292,12 @@ def tank_count(df: pd.DataFrame) -> None:
 
     def _tank_count(df: pd.DataFrame) -> Dict[str, List[str | int]]:
         return (
-            df.groupby("坦克")["team_id"]
+            df.groupby("坦克", as_index=False)["team_id"]  # type: ignore
             .count()
-            .sort_values(ascending=False)
-            .reset_index()
+            .sort_values("team_id", ascending=False)
             .rename(columns={"坦克": "item", "team_id": "value"})
             .to_dict("list")
-        )  # type: ignore
+        )
 
     RESULT["tank_count"]["all"] = _tank_count(df)
 
@@ -369,21 +401,27 @@ def leader_mount_type_count(df: pd.DataFrame) -> None:
 
     团长心法类型统计
     """
-    RESULT["leader_mount_type_count"] = (  # type: ignore
-        df["mount"]
-        .map(
-            {
-                mount_id: mount_type
-                for mount_type, mount_ids in mount_group["mount_group"].items()
-                for mount_id in mount_ids
-            }
-        )
-        .value_counts()
-        .sort_values(ascending=False)
-        .reset_index()
-        .rename(columns={"index": "item", "mount": "value"})
-        .to_dict("list")
-    )
+
+    def _leader_mount_type_count(
+        df: pd.DataFrame,
+    ) -> Dict[str, List[str | int]]:
+        return (
+            df["mount_type"]
+            .value_counts()
+            .sort_values(ascending=False)
+            .reset_index()
+            .rename(columns={"index": "item", "mount_type": "value"})
+            .to_dict("list")
+        )  # type: ignore
+
+    RESULT["leader_mount_type_count"]["all"] = _leader_mount_type_count(df)
+
+    def agg_func(df: pd.DataFrame) -> None:
+        RESULT["leader_mount_type_count"][  # type: ignore
+            df.name
+        ] = _leader_mount_type_count(df)
+
+    df.groupby("achieve_id").apply(agg_func)  # type: ignore
 
 
 def flight_time_mean(df: pd.DataFrame) -> None:
@@ -392,18 +430,121 @@ def flight_time_mean(df: pd.DataFrame) -> None:
 
     BOSS 平均战斗时长
     """
-    RESULT["flight_time_mean"] = (  # type: ignore
-        df.groupby("achieve_id")["fight_time"]
+    RESULT["flight_time_mean"]["all"] = (
+        df.groupby("achieve_id", as_index=False)["fight_time"]  # type: ignore
         .mean()
-        .reset_index()
         .rename(columns={"achieve_id": "item", "fight_time": "value"})
         .to_dict("list")
     )
 
 
-def dumper(output: str = "result.json") -> int:
-    with open(output, mode="w+", encoding="utf-8") as f:
-        return f.write(json.dumps(RESULT))
+##########
+# Rank
+##########
+
+
+def rank_mount_dps(df: pd.DataFrame) -> None:
+    """
+    rank_mount_dps
+
+    输出心法平均 DPS
+    """
+    df = outlier_dropper(df.query("mount_type.isin(('外攻', '内攻'))"), "dps")
+
+    def _rank_mount_dps(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+        return (
+            df.groupby("mount", as_index=False)["dps"]  # type: ignore
+            .mean()
+            .sort_values("dps", ascending=False)
+            .rename(columns={"mount": "item", "dps": "value"})
+            .to_dict("list")
+        )
+
+    RESULT["rank_mount_dps"]["all"] = _rank_mount_dps(df)
+
+    def agg_func(df: pd.DataFrame) -> None:
+        RESULT["rank_mount_dps"][df.name] = _rank_mount_dps(df)  # type: ignore
+
+    df.groupby("achieve_id").apply(agg_func)  # type: ignore
+
+
+def rank_mount_damage(df: pd.DataFrame) -> None:
+    """
+    rank_mount_damage
+
+    输出心法平均伤害量
+    """
+    df = outlier_dropper(df.query("mount_type.isin(('外攻', '内攻'))"), "damage")
+
+    def _rank_mount_damage(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+        return (
+            df.groupby("mount", as_index=False)["damage"]  # type: ignore
+            .mean()
+            .sort_values("damage", ascending=False)
+            .rename(columns={"mount": "item", "damage": "value"})
+            .to_dict("list")
+        )
+
+    RESULT["rank_mount_damage"]["all"] = _rank_mount_damage(df)
+
+    def agg_func(df: pd.DataFrame) -> None:
+        RESULT["rank_mount_damage"][  # type: ignore
+            df.name
+        ] = _rank_mount_damage(df)
+
+    df.groupby("achieve_id").apply(agg_func)  # type: ignore
+
+
+def rank_mount_hps(df: pd.DataFrame) -> None:
+    """
+    rank_mount_hps
+
+    治疗心法平均 HPS
+    """
+    df = outlier_dropper(df.query("mount_type == '治疗'"), "hps")
+
+    def _rank_mount_hps(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+        return (
+            df.groupby("mount", as_index=False)["hps"]  # type: ignore
+            .mean()
+            .sort_values("hps", ascending=False)
+            .rename(columns={"mount": "item", "hps": "value"})
+            .to_dict("list")
+        )
+
+    RESULT["rank_mount_hps"]["all"] = _rank_mount_hps(df)
+
+    def agg_func(df: pd.DataFrame) -> None:
+        RESULT["rank_mount_hps"][df.name] = _rank_mount_hps(df)  # type: ignore
+
+    df.groupby("achieve_id").apply(agg_func)  # type: ignore
+
+
+def rank_mount_therapy(df: pd.DataFrame) -> None:
+    """
+    rank_mount_therapy
+
+    治疗心法平均治疗量
+    """
+    df = outlier_dropper(df.query("mount_type == '治疗'"), "therapy")
+
+    def _rank_mount_therapy(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+        return (
+            df.groupby("mount", as_index=False)["therapy"]  # type: ignore
+            .mean()
+            .sort_values("therapy", ascending=False)
+            .rename(columns={"mount": "item", "therapy": "value"})
+            .to_dict("list")
+        )
+
+    RESULT["rank_mount_therapy"]["all"] = _rank_mount_therapy(df)
+
+    def agg_func(df: pd.DataFrame) -> None:
+        RESULT["rank_mount_therapy"][  # type: ignore
+            df.name
+        ] = _rank_mount_therapy(df)
+
+    df.groupby("achieve_id").apply(agg_func)  # type: ignore
 
 
 def analysis(file: str) -> None:
@@ -438,13 +579,15 @@ def analysis(file: str) -> None:
                 "battleId",
                 "mount",
             ),
+            dtype={"guid": str},
         )
         .query("status == 1 & verified == 1")
-        .reset_index(drop=True)
         .drop(columns=["status", "verified"])
+        .dropna(how="any")
+        .reset_index(drop=True)
         .apply(
-            pd.to_numeric, errors="ignore", downcast="unsigned"
-        )  # type: ignore
+            pd.to_numeric, errors="ignore", downcast="unsigned"  # type: ignore
+        )
     )
 
     # df["finish_time"] = pd.to_datetime(df["finish_time"], unit="s")
@@ -459,7 +602,7 @@ def analysis(file: str) -> None:
     # escape the mount id of teammates
     df = df.join(
         pd.json_normalize(
-            df["teammate"].map(
+            df["teammate"].map(  # type: ignore
                 lambda x: Counter(
                     map(lambda x: int(x.split(",")[1]), x.split(";"))
                 )
@@ -498,18 +641,33 @@ def analysis(file: str) -> None:
             pd.to_numeric, errors="ignore", downcast="unsigned"
         )  # type: ignore
     )
+
+    # escape the mount type from mount id
+    df["mount_type"] = (
+        df["mount"]
+        .map(
+            {
+                mount_id: mount_type
+                for mount_type, mount_ids in mount_group["mount_group"].items()
+                for mount_id in mount_ids
+            }
+        )
+        .apply(pd.to_numeric, errors="ignore", downcast="unsigned")
+    )
+
     teams = df.query("is_leader == 1")
 
-    ##########
-    # Analysis
-    ##########
-    top10_server_team_count(teams)
-    top100_server_team_count(teams)
+    ###############
+    # Statistics
+    ###############
+
+    top10_achieve_team_count(teams)
+    top100_achieve_team_count(teams)
     server_rank_team_count(teams)
     force_attendance_count(teams)
     mount_attendance_count(teams)
-    heal_count(teams)
-    heal_attendance_count(teams)
+    hps_count(teams)
+    hps_attendance_count(teams)
     tank_count(teams)
     tank_attendance_count(teams)
     dps_count(teams)
@@ -517,13 +675,22 @@ def analysis(file: str) -> None:
     leader_mount_type_count(teams)
     flight_time_mean(teams)
 
+    ##########
+    # Rank
+    ##########
+
+    rank_mount_dps(df)
+    rank_mount_damage(df)
+    rank_mount_hps(df)
+    rank_mount_therapy(df)
+
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
 
-    parser.add_argument("-i", "--input", type=str)
+    parser.add_argument("-i", "--input", type=str, required=True)
     parser.add_argument("-o", "--output", type=str, default="result.json")
 
     args = parser.parse_args()
