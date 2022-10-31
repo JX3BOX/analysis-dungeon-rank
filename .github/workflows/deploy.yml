@@ -22,7 +22,7 @@ jobs:
           script: |
             cd /www/wwwroot/jx3box/jx3box-v2/data
             cd analysis-dungeon-rank
-            git pull origin master
+            git pull origin main
       # - name: node
       #   run: |
       #     npm install
