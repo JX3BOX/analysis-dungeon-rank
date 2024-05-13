@@ -2,7 +2,7 @@ from collections import Counter, defaultdict
 from functools import partial
 from itertools import chain
 from operator import itemgetter
-from typing import Any, DefaultDict, Dict, List
+from typing import Any, DefaultDict, Dict, List, Union
 
 import pandas as pd
 from scipy.stats import kstest, norm
@@ -31,9 +31,7 @@ with open("school.json", "rb") as f:
     school = json.loads(f.read())
 
 
-force_id_mounts = {
-    force["force_id"]: force["mounts"] for force in school.values()
-}
+force_id_mounts = {force["force_id"]: force["mounts"] for force in school.values()}
 
 # https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/mount_group.json
 with open("mount_group.json", "rb") as f:
@@ -91,7 +89,7 @@ def top10_achieve_team_count(df: pd.DataFrame) -> None:
 
     def _top10_achieve_team_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
             df.sort_values("finish_time", ascending=True)
             .head(10)
@@ -121,7 +119,7 @@ def top100_achieve_team_count(df: pd.DataFrame) -> None:
 
     def _top100_achieve_team_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
             df.sort_values("finish_time", ascending=True)
             .head(100)
@@ -151,7 +149,7 @@ def server_rank_team_count(df: pd.DataFrame) -> None:
 
     def _server_rank_team_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
             df.groupby("server", as_index=False)["team_id"]  # type: ignore
             .count()
@@ -179,7 +177,7 @@ def force_attendance_count(df: pd.DataFrame) -> None:
 
     def _force_attendance_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
             df[map(itemgetter("force_id"), school.values())]  # type: ignore
             .sum()
@@ -208,11 +206,9 @@ def mount_attendance_count(df: pd.DataFrame) -> None:
 
     def _mount_attendance_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
-            df[
-                chain.from_iterable(map(itemgetter("mounts"), school.values()))
-            ]  # type: ignore
+            df[chain.from_iterable(map(itemgetter("mounts"), school.values()))]  # type: ignore
             .sum()
             .sort_values(ascending=False)
             .reset_index()
@@ -237,7 +233,7 @@ def hps_count(df: pd.DataFrame) -> None:
     治疗心法个数统计
     """
 
-    def _hps_count(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+    def _hps_count(df: pd.DataFrame) -> Dict[str, List[Union[str, int]]]:
         return (
             df.groupby("治疗", as_index=False)["team_id"]  # type: ignore
             .count()
@@ -263,7 +259,7 @@ def hps_attendance_count(df: pd.DataFrame) -> None:
 
     def _hps_attendance_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
             df[mount_group["mount_group"]["治疗"]]
             .sum()
@@ -290,7 +286,7 @@ def tank_count(df: pd.DataFrame) -> None:
     防御心法个数统计
     """
 
-    def _tank_count(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+    def _tank_count(df: pd.DataFrame) -> Dict[str, List[Union[str, int]]]:
         return (
             df.groupby("坦克", as_index=False)["team_id"]  # type: ignore
             .count()
@@ -316,7 +312,7 @@ def tank_attendance_count(df: pd.DataFrame) -> None:
 
     def _tank_attendance_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
             df[mount_group["mount_group"]["坦克"]]
             .sum()
@@ -343,12 +339,9 @@ def dps_count(df: pd.DataFrame) -> None:
     输出心法统计
     """
 
-    def _dps_count(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+    def _dps_count(df: pd.DataFrame) -> Dict[str, List[Union[str, int]]]:
         return (
-            df[
-                mount_group["mount_group"]["外攻"]
-                + mount_group["mount_group"]["内攻"]
-            ]
+            df[mount_group["mount_group"]["外攻"] + mount_group["mount_group"]["内攻"]]
             .sum()
             .sort_values(ascending=False)
             .reset_index()
@@ -373,7 +366,7 @@ def mount_type_attendance_count(df: pd.DataFrame) -> None:
 
     def _mount_type_attendance_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
             df[["外攻", "内攻"]]
             .sum()
@@ -383,9 +376,7 @@ def mount_type_attendance_count(df: pd.DataFrame) -> None:
             .to_dict("list")
         )  # type: ignore
 
-    RESULT["mount_type_attendance_count"][
-        "all"
-    ] = _mount_type_attendance_count(df)
+    RESULT["mount_type_attendance_count"]["all"] = _mount_type_attendance_count(df)
 
     def agg_func(df: pd.DataFrame) -> None:
         RESULT["mount_type_attendance_count"][  # type: ignore
@@ -404,7 +395,7 @@ def leader_mount_type_count(df: pd.DataFrame) -> None:
 
     def _leader_mount_type_count(
         df: pd.DataFrame,
-    ) -> Dict[str, List[str | int]]:
+    ) -> Dict[str, List[Union[str, int]]]:
         return (
             df["mount_type"]
             .value_counts()
@@ -451,7 +442,7 @@ def rank_mount_dps(df: pd.DataFrame) -> None:
     """
     df = outlier_dropper(df.query("mount_type.isin(('外攻', '内攻'))"), "dps")
 
-    def _rank_mount_dps(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+    def _rank_mount_dps(df: pd.DataFrame) -> Dict[str, List[Union[str, int]]]:
         return (
             df.groupby("mount", as_index=False)["dps"]  # type: ignore
             .mean()
@@ -476,7 +467,7 @@ def rank_mount_damage(df: pd.DataFrame) -> None:
     """
     df = outlier_dropper(df.query("mount_type.isin(('外攻', '内攻'))"), "damage")
 
-    def _rank_mount_damage(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+    def _rank_mount_damage(df: pd.DataFrame) -> Dict[str, List[Union[str, int]]]:
         return (
             df.groupby("mount", as_index=False)["damage"]  # type: ignore
             .mean()
@@ -503,7 +494,7 @@ def rank_mount_hps(df: pd.DataFrame) -> None:
     """
     df = outlier_dropper(df.query("mount_type == '治疗'"), "hps")
 
-    def _rank_mount_hps(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+    def _rank_mount_hps(df: pd.DataFrame) -> Dict[str, List[Union[str, int]]]:
         return (
             df.groupby("mount", as_index=False)["hps"]  # type: ignore
             .mean()
@@ -528,7 +519,7 @@ def rank_mount_therapy(df: pd.DataFrame) -> None:
     """
     df = outlier_dropper(df.query("mount_type == '治疗'"), "therapy")
 
-    def _rank_mount_therapy(df: pd.DataFrame) -> Dict[str, List[str | int]]:
+    def _rank_mount_therapy(df: pd.DataFrame) -> Dict[str, List[Union[str, int]]]:
         return (
             df.groupby("mount", as_index=False)["therapy"]  # type: ignore
             .mean()
@@ -586,7 +577,9 @@ def analysis(file: str) -> None:
         .dropna(how="any")
         .reset_index(drop=True)
         .apply(
-            pd.to_numeric, errors="ignore", downcast="unsigned"  # type: ignore
+            pd.to_numeric,
+            errors="ignore",
+            downcast="unsigned",  # type: ignore
         )
     )
 
@@ -603,43 +596,29 @@ def analysis(file: str) -> None:
     df = df.join(
         pd.json_normalize(
             df["teammate"].map(  # type: ignore
-                lambda x: Counter(
-                    map(lambda x: int(x.split(",")[1]), x.split(";"))
-                )
+                lambda x: Counter(map(lambda x: int(x.split(",")[1]), x.split(";")))
             )
         )
         .fillna(0)
-        .apply(
-            pd.to_numeric, errors="ignore", downcast="unsigned"
-        )  # type: ignore
+        .apply(pd.to_numeric, errors="ignore", downcast="unsigned")  # type: ignore
     )
 
     # count the mount type of teammates
     df = df.join(
         pd.concat(
-            (
-                df[v].apply(sum, axis=1)
-                for v in mount_group["mount_group"].values()
-            ),
+            (df[v].apply(sum, axis=1) for v in mount_group["mount_group"].values()),
             axis=1,
             keys=mount_group["mount_group"],
-        ).apply(
-            pd.to_numeric, errors="ignore", downcast="unsigned"
-        )  # type: ignore
+        ).apply(pd.to_numeric, errors="ignore", downcast="unsigned")  # type: ignore
     )
 
     # count the force of teammates
     df = df.join(
         pd.concat(
-            (
-                df[mounts].apply(sum, axis=1)
-                for mounts in force_id_mounts.values()
-            ),
+            (df[mounts].apply(sum, axis=1) for mounts in force_id_mounts.values()),
             axis=1,
             keys=force_id_mounts,
-        ).apply(
-            pd.to_numeric, errors="ignore", downcast="unsigned"
-        )  # type: ignore
+        ).apply(pd.to_numeric, errors="ignore", downcast="unsigned")  # type: ignore
     )
 
     # escape the mount type from mount id
