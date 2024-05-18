@@ -588,9 +588,12 @@ def analysis(file: str) -> None:
 
     # df["zone"] = df["battleId"].map(lambda x: x.split("::")[1].split("_")[0])
 
-    ##############################
-    # Wide Table preprocessing
-    ##############################
+    # merge mount of `cangjian`
+    df.loc[df["mount"] == 10144, "mount"] = 10145
+
+    ##############
+    # Wide Table #
+    ##############
 
     # escape the mount id of teammates
     df = df.join(
@@ -636,9 +639,9 @@ def analysis(file: str) -> None:
 
     teams = df.query("is_leader == 1")
 
-    ###############
-    # Statistics
-    ###############
+    ##############
+    # Statistics #
+    ##############
 
     top10_achieve_team_count(teams)
     top100_achieve_team_count(teams)
@@ -654,9 +657,9 @@ def analysis(file: str) -> None:
     leader_mount_type_count(teams)
     flight_time_mean(teams)
 
-    ##########
-    # Rank
-    ##########
+    ########
+    # Rank #
+    ########
 
     rank_mount_dps(df)
     rank_mount_damage(df)
