@@ -35,5 +35,5 @@
 
 ## Quick Start
 ```bash
-python Rank.py.py -i team_race_for_event.csv -o result.json --boss 11504,11501,11500,11502,11503
+python Rank.py -i team_race_for_event.csv -o result.json --boss 11504,11501,11500,11502,11503
 ```
