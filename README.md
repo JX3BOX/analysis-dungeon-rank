@@ -32,12 +32,8 @@
     }
 }
 ```
-## Dependences
-执行脚本前，请确认工作目录下存在以下数据字典：
-- [school.json](https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/school.json)
-- [mount_group.json](https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/mount_group.json)
 
 ## Quick Start
 ```bash
-python DungeonRankAnalysis.py -i team_race_for_event.csv -o result.json
+python Rank.py.py -i team_race_for_event.csv -o result.json --boss 11504,11501,11500,11502,11503
 ```
