@@ -69,7 +69,9 @@ if __name__ == "__main__":
             (
                 line
                 for line in DictReader(f)
-                if line["status"] == "1" and line["verified"] == "1"
+                if line["status"] == "1"
+                and line["verified"] == "1"
+                and int(line["mount"]) in mount_id_to_force_id
             ),
             key=itemgetter("finish_time"),
         )
@@ -83,6 +85,12 @@ if __name__ == "__main__":
                 )
             )
             for teammate in line["teammate"].split(";")
+        ]
+
+        line["teammate"] = [
+            teammate
+            for teammate in line["teammate"]
+            if int(teammate["mount_id"]) in mount_id_to_force_id
         ]
 
         if line["mount"] == "10144":
