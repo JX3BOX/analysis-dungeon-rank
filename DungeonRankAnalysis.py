@@ -35,6 +35,22 @@ def MAD(lst: List[float | int], *, coefficient: float | int = 2) -> List[float |
     ]
 
 
+def build_mount_id_map(school, xfid):
+    # 以 school 中的心法 ID 为标准，按同名心法合并移动端 ID。
+    name_to_id = {
+        xfid[str(mount)]: mount
+        for info in school.values()
+        for mount in info["mounts"]
+    }
+    # 移动端藏剑只有门派名，沿用问水诀合并到山居剑意的统计口径。
+    name_to_id["藏剑"] = name_to_id["问水诀"] = 10145
+    return {
+        mount_id: name_to_id[name]
+        for mount_id, name in xfid.items()
+        if name in name_to_id
+    }
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
 
@@ -51,6 +67,9 @@ if __name__ == "__main__":
 
     with open("school.json", "r+", encoding="utf-8") as f:
         school = json.load(f)
+
+    with open("xfid.json", "r", encoding="utf-8") as f:
+        mount_id_map = build_mount_id_map(school, json.load(f))
 
     mount_id_to_force_id = {
         mount: v["force_id"] for v in school.values() for mount in v["mounts"]
@@ -71,12 +90,13 @@ if __name__ == "__main__":
                 for line in DictReader(f)
                 if line["status"] == "1"
                 and line["verified"] == "1"
-                and int(line["mount"]) in mount_id_to_force_id
+                and line["mount"] in mount_id_map
             ),
             key=itemgetter("finish_time"),
         )
 
     for line in data:
+        line["mount"] = mount_id_map[line["mount"]]
         line["teammate"] = [
             dict(
                 zip(
@@ -90,16 +110,11 @@ if __name__ == "__main__":
         line["teammate"] = [
             teammate
             for teammate in line["teammate"]
-            if int(teammate["mount_id"]) in mount_id_to_force_id
+            if teammate["mount_id"] in mount_id_map
         ]
 
-        if line["mount"] == "10144":
-            line["mount"] = "10145"
-
         for teammate in line["teammate"]:
-            teammate["mount_id"] = int(teammate["mount_id"])
-            if teammate["mount_id"] == 10144:
-                teammate["mount_id"] = 10145
+            teammate["mount_id"] = mount_id_map[teammate["mount_id"]]
 
         line["mount_count"] = Counter(
             teammate["mount_id"] for teammate in line["teammate"]
@@ -130,8 +145,6 @@ if __name__ == "__main__":
         line["内攻"] = sum(
             itemgetter(*mount_group["mount_group"]["内攻"])(line["mount_count"])
         )
-
-        line["mount"] = int(line["mount"])
 
     leader = [item for item in data if item["is_leader"] == "1"]
 

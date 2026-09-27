@@ -38,6 +38,9 @@
 在运行前确保以下文件已处于工作目录:
 - [https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/school.json](https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/school.json)
 - [https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/mount_group.json](https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/mount_group.json)
+- [https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/xfid.json](https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/xfid.json)
+
+`xfid.json` 用于按心法名称将移动端 ID 映射到 `school.json` 中的标准 ID，覆盖上报者和队伍成员。藏剑统一计入山居剑意（10145）；空值及无法映射的心法仍不参与统计。
 
 ```bash
 python DungeonRankAnalysis.py --input team_race_for_event.csv --output result.json --boss 11504,11501,11500,11502,11503
